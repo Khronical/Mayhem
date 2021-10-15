@@ -901,7 +901,14 @@ do
 		return textbox
 	end
 	
-	function section:addKeybind(title, default, callback, changedCallback)
+	function section:addKeybind(data)
+		local this = {}
+		this.title = data.title or "nil text"
+		this.key = data.key or Enum.KeyCode.Unknown
+		this.gameProcessedEvent = data.gameProcessedEvent or false
+		this.callback = data.callback or function() end
+		this.changedCallback = data.changedCallback or function() end
+
 		local keybind = utility:Create("ImageButton", {
 			Name = "Keybind",
 			Parent = self.container,
@@ -922,7 +929,7 @@ do
 				Size = UDim2.new(1, 0, 1, 0),
 				ZIndex = 3,
 				Font = Enum.Font.Gotham,
-				Text = title,
+				Text = this.title,
 				TextColor3 = themes.TextColor,
 				TextSize = 12,
 				TextTransparency = 0.10000000149012,
@@ -946,64 +953,54 @@ do
 					Size = UDim2.new(1, 0, 1, 0),
 					ZIndex = 3,
 					Font = Enum.Font.GothamSemibold,
-					Text = default and default.Name or "None",
+					Text = input:GetStringForKeyCode(this.key),
 					TextColor3 = themes.TextColor,
 					TextSize = 11
 				})
 			})
 		})
-		
-		table.insert(self.modules, keybind)
-		--self:Resize()
-		
+		local module = {Instance = keybind, Options = this}
+		self.modules[#self.modules + 1] = module
 		local text = keybind.Button.Text
 		local button = keybind.Button
-		
+
 		local animate = function()
 			if button.ImageTransparency == 0 then
 				utility:Pop(button, 10)
 			end
 		end
-		
 		self.binds[keybind] = {callback = function()
 			animate()
-			
-			if callback then
-				callback(function(...)
-					self:updateKeybind(keybind, ...)
-				end)
-			end
+			this.callback()
 		end}
-		
-		if default and callback then
-			self:updateKeybind(keybind, nil, default)
-		end
-		
+		self:updateKeybind(module)
+
 		keybind.MouseButton1Click:Connect(function()
-			
 			animate()
-			
+
 			if self.binds[keybind].connection then -- unbind
-				return self:updateKeybind(keybind)
+			    this.key = Enum.KeyCode.Unknown
+				return self:updateKeybind(module)
 			end
-			
-			if text.Text == "None" then -- new bind
+
+			if text.Text == "Unknown" then -- new bind
 				text.Text = "..."
-				
-				local key = utility:KeyPressed()
-				
-				self:updateKeybind(keybind, nil, key.KeyCode)
+				this.key = utility:KeyPressed()
+				self:updateKeybind(module)
 				animate()
-				
-				if changedCallback then
-					changedCallback(key, function(...)
-						self:updateKeybind(keybind, ...)
-					end)
-				end
+				this.changedCallback(this.key)
 			end
 		end)
-		
-		return keybind
+
+		function this:Update(dataOptions)
+            for i,v in pairs(dataOptions) do
+                if (module.Options[i] and i ~= "Update") then
+                    module.Options[i] = tostring(v)
+                end
+			end
+			return section:updateKeybind(module)
+		end
+		return module
 	end
 	
 	function section:addColorPicker(title, default, callback)
